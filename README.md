@@ -8,62 +8,129 @@ Heroku-style container deployments made simple.
 
 Pvdify is a lightweight, self-hosted PaaS (Platform as a Service) that brings Heroku-style deployments to your own infrastructure. Deploy any Docker/OCI container with zero configuration, automatic HTTPS, and a clean web dashboard.
 
-**Live Demo:** [admin.pvdify.win](https://admin.pvdify.win)
-
 ## Features
 
 - **Zero-Config Deployments** - Deploy any container image with a single command
-- **Automatic HTTPS** - Free SSL certificates via Let's Encrypt
-- **Custom Domains** - Point your own domains with simple DNS configuration
+- **Automatic HTTPS** - Free SSL certificates via Let's Encrypt or Cloudflare
+- **Custom Domains** - One-click Cloudflare DNS integration
 - **Config Vars** - Secure environment variable management (12-factor style)
 - **Release Management** - Version tracking with instant rollbacks
-- **Process Scaling** - Scale dynos up or down as needed
+- **Process Scaling** - Scale dynos horizontally as needed
 - **Web Dashboard** - Modern, mobile-friendly admin interface
 - **RESTful API** - Full-featured API for automation and integrations
 - **CLI Tool** - Heroku-compatible command-line interface
+- **GitHub Integration** - Deploy directly from GitHub Actions
+
+---
+
+## System Requirements
+
+### Minimum Hardware
+
+| Resource | Minimum | Recommended |
+|----------|---------|-------------|
+| CPU | 2 cores | 4+ cores |
+| RAM | 2 GB | 4+ GB |
+| Storage | 20 GB SSD | 50+ GB SSD |
+| Network | 100 Mbps | 1 Gbps |
+
+### Software Requirements
+
+| Component | Version | Purpose |
+|-----------|---------|---------|
+| **Operating System** | AlmaLinux 8+, RHEL 8+, Ubuntu 22.04+ | Host OS |
+| **Go** | 1.21+ | Build pvdifyd and CLI |
+| **Node.js** | 18+ LTS | Build admin UI |
+| **Podman** | 4.0+ | Container runtime (rootless supported) |
+| **SQLite** | 3.35+ | Application database |
+| **Systemd** | 239+ | Service management |
+
+### Network Requirements
+
+| Port | Protocol | Purpose |
+|------|----------|---------|
+| 80 | TCP | HTTP redirect to HTTPS |
+| 443 | TCP | HTTPS (Admin UI, API, App traffic) |
+| 9443 | TCP | Internal API (localhost only) |
+
+### External Services (Optional)
+
+| Service | Purpose |
+|---------|---------|
+| **Cloudflare** | DNS management, SSL, CDN, DDoS protection |
+| **Let's Encrypt** | Free SSL certificates (if not using Cloudflare) |
+| **Container Registry** | Docker Hub, GitHub Container Registry, or private |
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Pvdify Stack                         │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
-│  │  Admin UI   │  │  Pvdify CLI │  │   GitHub Extension  │ │
-│  │ (SvelteKit) │  │    (Go)     │  │    (gh-pvdify)      │ │
-│  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘ │
-│         │                │                     │            │
-│         └────────────────┼─────────────────────┘            │
-│                          ▼                                  │
-│  ┌───────────────────────────────────────────────────────┐ │
-│  │                    pvdifyd (Go)                        │ │
-│  │              Control Plane Daemon                      │ │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────────┐  │ │
-│  │  │   API   │ │   DB    │ │ Podman  │ │   Systemd   │  │ │
-│  │  │ Server  │ │ (SQLite)│ │ Client  │ │  Generator  │  │ │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────────┘  │ │
-│  └───────────────────────────────────────────────────────┘ │
-│                          │                                  │
-│                          ▼                                  │
-│  ┌───────────────────────────────────────────────────────┐ │
-│  │              Container Runtime (Podman)                │ │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────────┐  │ │
-│  │  │  App 1  │ │  App 2  │ │  App 3  │ │    App N    │  │ │
-│  │  └─────────┘ └─────────┘ └─────────┘ └─────────────┘  │ │
-│  └───────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Internet                                     │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Cloudflare (Optional)                             │
+│            DNS, SSL Termination, CDN, WAF                           │
+└───────────────────────────────┬─────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Reverse Proxy Layer                              │
+│              (Caddy / LiteSpeed / Nginx)                            │
+│                                                                      │
+│   ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────────┐ │
+│   │ admin.*.win │  │  app1.*.win │  │        app2.*.win           │ │
+│   └──────┬──────┘  └──────┬──────┘  └──────────────┬──────────────┘ │
+└──────────┼────────────────┼────────────────────────┼────────────────┘
+           │                │                        │
+           ▼                ▼                        ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Pvdify Stack                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────────┐  │
+│  │  Admin UI   │  │  Pvdify CLI │  │      GitHub Extension       │  │
+│  │ (SvelteKit) │  │    (Go)     │  │       (gh-pvdify)           │  │
+│  └──────┬──────┘  └──────┬──────┘  └──────────────┬──────────────┘  │
+│         │                │                        │                  │
+│         └────────────────┼────────────────────────┘                  │
+│                          ▼                                           │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                      pvdifyd (Go)                              │  │
+│  │                 Control Plane Daemon                           │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │  │
+│  │  │   REST   │ │  SQLite  │ │  Podman  │ │     Systemd      │  │  │
+│  │  │   API    │ │    DB    │ │  Client  │ │    Generator     │  │  │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                          │                                           │
+│                          ▼                                           │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │                 Container Runtime (Podman)                     │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │  │
+│  │  │  App 1   │ │  App 2   │ │  App 3   │ │      App N       │  │  │
+│  │  │ :3000    │ │ :3001    │ │ :3002    │ │     :300N        │  │  │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Components
+### Component Overview
 
 | Component | Technology | Description |
 |-----------|------------|-------------|
-| **pvdifyd** | Go | Control plane daemon - REST API, database, container orchestration |
-| **admin-ui** | SvelteKit + Tailwind | Web dashboard for app management |
-| **cli** | Go + Cobra | Command-line interface |
-| **gh-pvdify** | Bash | GitHub CLI extension for CI/CD |
+| **pvdifyd** | Go 1.21+ | Control plane daemon - REST API, SQLite database, container orchestration |
+| **admin-ui** | SvelteKit 2 + Tailwind CSS | Responsive web dashboard for app management |
+| **cli** | Go + Cobra | Heroku-compatible command-line interface |
+| **gh-pvdify** | Bash | GitHub CLI extension for CI/CD pipelines |
+
+### Data Flow
+
+1. **User Request** → Cloudflare (DNS/SSL) → Reverse Proxy → pvdifyd API
+2. **App Traffic** → Cloudflare → Reverse Proxy → Container (via port mapping)
+3. **Deployment** → CLI/API → pvdifyd → Podman → Systemd unit → Running container
 
 ---
 
@@ -81,22 +148,47 @@ pvdify apps:create my-app
 pvdify deploy my-app --image nginx:latest
 ```
 
-### 3. View Your App
+### 3. Add a Custom Domain (Optional)
 
-Your app is now live at `https://my-app.pvdify.win`
+```bash
+pvdify domains:add my-app myapp.example.com
+```
+
+### 4. View Your App
+
+Your app is live at `https://my-app.yourdomain.com`
 
 ---
 
 ## CLI Reference
 
+### Installation
+
+```bash
+# Download latest release
+curl -fsSL https://github.com/Philoveracity/pvdify.win/releases/latest/download/pvdify-linux-amd64 -o pvdify
+chmod +x pvdify
+sudo mv pvdify /usr/local/bin/
+```
+
+### Configuration
+
+```bash
+# Set API endpoint
+export PVDIFY_API_URL="https://your-pvdify-server.com"
+
+# Set authentication token (if enabled)
+export PVDIFY_TOKEN="your-api-token"
+```
+
 ### Global Flags
 
 | Flag | Environment Variable | Description |
 |------|---------------------|-------------|
-| `--api-url` | `PVDIFY_API_URL` | API endpoint (default: https://pvdify.win) |
+| `--api-url` | `PVDIFY_API_URL` | Pvdify API endpoint |
 | `--token` | `PVDIFY_TOKEN` | Authentication token |
 
-### Apps
+### App Management
 
 ```bash
 # List all apps
@@ -109,7 +201,7 @@ pvdify apps:create NAME [-e environment]
 # Show app details
 pvdify apps:info NAME
 
-# Delete an app
+# Delete an app (requires confirmation)
 pvdify apps:delete NAME
 ```
 
@@ -120,6 +212,11 @@ pvdify apps:delete NAME
 pvdify deploy NAME --image IMAGE
   -i, --image   Container image to deploy (required)
 
+# Examples:
+pvdify deploy my-app --image nginx:latest
+pvdify deploy my-app --image ghcr.io/myorg/myapp:v1.2.3
+pvdify deploy my-app --image my-registry.com/app:latest
+
 # List releases
 pvdify releases NAME
 
@@ -127,23 +224,27 @@ pvdify releases NAME
 pvdify rollback NAME
 ```
 
-### Config Vars
+### Config Vars (Environment Variables)
 
 ```bash
-# Show all config vars
+# Show all config vars (values hidden)
 pvdify config NAME
 
-# Set config vars
+# Set one or more config vars
 pvdify config:set NAME KEY=VALUE [KEY=VALUE...]
+
+# Examples:
+pvdify config:set my-app DATABASE_URL=postgres://...
+pvdify config:set my-app NODE_ENV=production PORT=3000
 
 # Unset config vars
 pvdify config:unset NAME KEY [KEY...]
 ```
 
-### Domains
+### Custom Domains
 
 ```bash
-# List domains
+# List domains for an app
 pvdify domains NAME
 
 # Add a custom domain
@@ -151,17 +252,24 @@ pvdify domains:add NAME DOMAIN
 
 # Remove a domain
 pvdify domains:remove NAME DOMAIN
+
+# Example workflow:
+pvdify domains:add my-app app.example.com
+# Then add CNAME record: app.example.com → my-app.pvdify.win
 ```
 
-### Processes
+### Process Management
 
 ```bash
-# List processes
+# List processes (dynos)
 pvdify ps NAME
 
 # Scale processes
 pvdify ps:scale NAME TYPE=COUNT [TYPE=COUNT...]
-  Example: pvdify ps:scale my-app web=3
+
+# Examples:
+pvdify ps:scale my-app web=3        # Scale web to 3 instances
+pvdify ps:scale my-app worker=2     # Scale workers
 
 # Restart all processes
 pvdify ps:restart NAME
@@ -170,25 +278,40 @@ pvdify ps:restart NAME
 ### Logs
 
 ```bash
-# View logs
-pvdify logs NAME [-n lines] [-f]
-  -n, --lines    Number of lines (default: 100)
-  -f, --follow   Stream logs in real-time
+# View recent logs
+pvdify logs NAME
+
+# View more lines
+pvdify logs NAME -n 500
+
+# Stream logs in real-time
+pvdify logs NAME -f
 ```
 
 ---
 
 ## REST API Reference
 
-Base URL: `https://admin.pvdify.win/api/v1`
+### Base URL
+
+```
+https://your-pvdify-server.com/api/v1
+```
+
+### Authentication
+
+If authentication is enabled, include the token in the Authorization header:
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" https://api.example.com/api/v1/apps
+```
 
 ### Health Check
 
-```
+```http
 GET /health
 ```
 
-Response:
 ```json
 {
   "status": "ok",
@@ -209,12 +332,13 @@ Response:
 #### Create App
 
 ```bash
-curl -X POST https://admin.pvdify.win/api/v1/apps \
+curl -X POST https://api.example.com/api/v1/apps \
   -H "Content-Type: application/json" \
   -d '{"name": "my-app", "environment": "production"}'
 ```
 
-Response:
+#### Response
+
 ```json
 {
   "name": "my-app",
@@ -230,14 +354,14 @@ Response:
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/apps/{name}/releases` | List all releases |
-| `POST` | `/apps/{name}/releases` | Create a new release (deploy) |
+| `POST` | `/apps/{name}/releases` | Create release (deploy) |
 | `GET` | `/apps/{name}/releases/{version}` | Get specific release |
-| `POST` | `/apps/{name}/rollback` | Rollback to previous release |
+| `POST` | `/apps/{name}/rollback` | Rollback to previous |
 
-#### Deploy (Create Release)
+#### Deploy
 
 ```bash
-curl -X POST https://admin.pvdify.win/api/v1/apps/my-app/releases \
+curl -X POST https://api.example.com/api/v1/apps/my-app/releases \
   -H "Content-Type: application/json" \
   -d '{"image": "nginx:latest"}'
 ```
@@ -249,14 +373,6 @@ curl -X POST https://admin.pvdify.win/api/v1/apps/my-app/releases \
 | `GET` | `/apps/{name}/config` | Get all config vars |
 | `PUT` | `/apps/{name}/config` | Set config vars |
 | `DELETE` | `/apps/{name}/config/{key}` | Unset a config var |
-
-#### Set Config
-
-```bash
-curl -X PUT https://admin.pvdify.win/api/v1/apps/my-app/config \
-  -H "Content-Type: application/json" \
-  -d '{"DATABASE_URL": "postgres://...", "API_KEY": "secret"}'
-```
 
 ### Domains
 
@@ -278,48 +394,61 @@ curl -X PUT https://admin.pvdify.win/api/v1/apps/my-app/config \
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/apps/{name}/logs` | Get app logs |
+| `GET` | `/apps/{name}/logs` | Get application logs |
 
 ---
 
 ## Admin Dashboard
 
-The web dashboard provides a visual interface for all operations:
+The web dashboard provides a visual interface for all operations.
 
-### Dashboard (`/`)
-- View all apps at a glance
-- Quick status indicators (running, stopped, deploying, failed)
-- One-click navigation to app details
+### Pages
 
-### Create App (`/apps/new`)
-- Form-based app creation
-- Environment selection (production/staging)
-- Real-time name validation
+| Route | Description |
+|-------|-------------|
+| `/` | Dashboard - View all apps with status |
+| `/apps/new` | Create a new application |
+| `/apps/{name}` | App details with tabs |
+| `/status` | System health monitoring |
 
-### App Details (`/apps/{name}`)
+### App Details Tabs
 
-**Overview Tab**
-- Process/dyno status and scaling
+**Overview**
+- Process/dyno status with scaling controls
 - Latest release information
 - Quick stats (releases, config vars, domains, dynos)
 
-**Deploy Tab**
+**Deploy**
 - CLI deployment instructions
-- Full release history with rollback options
+- Full release history
+- One-click rollback
 
-**Config Tab**
-- View/hide config var values
-- Secure environment variable management
+**Config**
+- View/hide sensitive config values
+- Add/remove environment variables
 
-**Settings Tab**
+**Settings**
 - App metadata and timestamps
-- Domain management
+- Domain management with Cloudflare integration
 - Danger zone (delete app)
 
-### Status Page (`/status`)
-- Real-time system health monitoring
-- API, Database, and Container Runtime status
-- Auto-refresh every 30 seconds
+---
+
+## Cloudflare Integration
+
+Pvdify integrates with Cloudflare for DNS management and SSL.
+
+### Setup
+
+1. **API Token**: Create a Cloudflare API token with Zone:DNS:Edit permissions
+2. **Configure**: Set `CLOUDFLARE_API_TOKEN` environment variable on your Pvdify server
+3. **Use**: The admin UI will show "Connect to Cloudflare" buttons for domain management
+
+### Features
+
+- **One-Click DNS**: Add CNAME records directly from the dashboard
+- **Automatic SSL**: Cloudflare provides free SSL certificates
+- **Proxy Mode**: Enable Cloudflare proxy for CDN and DDoS protection
 
 ---
 
@@ -329,15 +458,15 @@ The web dashboard provides a visual interface for all operations:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `name` | string | Unique app identifier |
+| `name` | string | Unique identifier (lowercase, alphanumeric, hyphens) |
 | `environment` | string | `production` or `staging` |
 | `status` | string | `created`, `running`, `stopped`, `failed`, `deleting` |
 | `image` | string | Current container image |
-| `bind_port` | int | Internal container port |
+| `bind_port` | int | Container port to expose |
 | `resources` | object | CPU/memory limits |
 | `healthcheck` | object | Health check configuration |
 | `created_at` | datetime | Creation timestamp |
-| `updated_at` | datetime | Last update timestamp |
+| `updated_at` | datetime | Last modification |
 
 ### Release
 
@@ -358,21 +487,32 @@ The web dashboard provides a visual interface for all operations:
 
 ---
 
-## Configuration
+## Security Considerations
 
-### pvdifyd Configuration
+### Network Security
 
-The daemon can be configured via environment variables or config file:
+- Run pvdifyd on localhost only (use reverse proxy for external access)
+- Enable HTTPS via Cloudflare or Let's Encrypt
+- Use firewall rules to restrict port access
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PVDIFY_LISTEN` | `0.0.0.0:9443` | Listen address |
-| `PVDIFY_DB_PATH` | `/var/lib/pvdify/pvdifyd.db` | SQLite database path |
-| `PVDIFY_STATIC_DIR` | `/opt/pvdify/admin-ui/dist` | Admin UI static files |
-| `PVDIFY_DEV` | `false` | Development mode |
-| `PVDIFY_TLS_ENABLED` | `false` | Enable TLS |
-| `PVDIFY_TLS_CERT` | - | TLS certificate path |
-| `PVDIFY_TLS_KEY` | - | TLS private key path |
+### Authentication
+
+- Enable API token authentication in production
+- Use environment variables for sensitive configuration
+- Rotate tokens periodically
+
+### Container Security
+
+- Run containers as non-root users
+- Use read-only root filesystems where possible
+- Scan images for vulnerabilities before deployment
+- Use private registries for proprietary images
+
+### Data Security
+
+- Config vars are stored encrypted at rest
+- Database file permissions should be restricted
+- Regular backups recommended
 
 ---
 
@@ -380,23 +520,21 @@ The daemon can be configured via environment variables or config file:
 
 ```
 pvdify.win/
-├── pvdifyd/                 # Control plane daemon
-│   ├── cmd/pvdifyd/         # Entry point
+├── pvdifyd/                 # Control plane daemon (Go)
+│   ├── cmd/pvdifyd/         # Main entry point
 │   └── internal/
-│       ├── api/             # HTTP handlers
-│       ├── config/          # Configuration
-│       ├── db/              # Database layer (SQLite)
-│       ├── models/          # Data models
+│       ├── api/             # REST API handlers
+│       ├── config/          # Configuration management
+│       ├── db/              # SQLite database layer
+│       ├── models/          # Data structures
 │       ├── podman/          # Container runtime client
-│       ├── systemd/         # Unit file generator
-│       └── tunnel/          # Cloudflare tunnel config
-├── cli/                     # CLI tool
-│   ├── cmd/pvdify/          # Commands
-│   └── internal/client/     # API client
-├── admin-ui/                # Web dashboard
-│   └── src/
-│       ├── routes/          # SvelteKit pages
-│       └── app.css          # Tailwind styles
+│       └── systemd/         # Unit file generator
+├── cli/                     # Command-line tool (Go)
+│   ├── cmd/pvdify/          # CLI commands
+│   └── internal/client/     # API client library
+├── admin-ui/                # Web dashboard (SvelteKit)
+│   ├── src/routes/          # Page components
+│   └── src/app.css          # Tailwind styles
 ├── gh-pvdify/               # GitHub CLI extension
 ├── .gitignore
 ├── LICENSE
@@ -410,48 +548,62 @@ pvdify.win/
 ### Prerequisites
 
 - Go 1.21+
-- Node.js 18+
-- Podman
+- Node.js 18+ LTS
+- Podman 4.0+
 
-### Build pvdifyd
+### Build All Components
 
 ```bash
-cd pvdifyd
-go build -o pvdifyd ./cmd/pvdifyd
+# Build control plane daemon
+cd pvdifyd && go build -o pvdifyd ./cmd/pvdifyd
+
+# Build CLI
+cd cli && go build -o pvdify ./cmd/pvdify
+
+# Build admin UI
+cd admin-ui && npm install && npm run build
 ```
 
-### Build CLI
+### Run Development Server
 
 ```bash
-cd cli
-go build -o pvdify ./cmd/pvdify
-```
-
-### Build Admin UI
-
-```bash
-cd admin-ui
-npm install
-npm run build
-```
-
-### Run Locally
-
-```bash
-# Start the daemon in dev mode
+# Start pvdifyd in dev mode
 ./pvdifyd --dev
 
-# Admin UI available at http://localhost:9443
-# API available at http://localhost:9443/api/v1
+# Access:
+# - Admin UI: http://localhost:9443
+# - API: http://localhost:9443/api/v1
 ```
 
 ---
 
-## Deployment
+## Deployment Guide
 
-### Systemd Service
+### 1. Install Dependencies
+
+```bash
+# AlmaLinux/RHEL
+sudo dnf install -y podman sqlite
+
+# Ubuntu/Debian
+sudo apt install -y podman sqlite3
+```
+
+### 2. Install Pvdify
+
+```bash
+# Download and install binaries
+sudo cp pvdifyd /usr/local/bin/
+sudo cp pvdify /usr/local/bin/
+
+# Create data directory
+sudo mkdir -p /var/lib/pvdify
+```
+
+### 3. Create Systemd Service
 
 ```ini
+# /etc/systemd/system/pvdifyd.service
 [Unit]
 Description=Pvdify Control Plane Daemon
 After=network.target
@@ -461,20 +613,37 @@ Type=simple
 ExecStart=/usr/local/bin/pvdifyd
 Restart=always
 RestartSec=5
+Environment=PVDIFY_STATIC_DIR=/opt/pvdify/admin-ui/dist
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-### Reverse Proxy (Caddy)
-
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now pvdifyd
 ```
-admin.pvdify.win {
+
+### 4. Configure Reverse Proxy
+
+**Caddy (Recommended)**
+```
+your-domain.com {
     reverse_proxy localhost:9443
 }
+```
 
-*.pvdify.win {
-    reverse_proxy localhost:9443
+**Nginx**
+```nginx
+server {
+    listen 443 ssl;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:9443;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
 }
 ```
 
@@ -482,13 +651,15 @@ admin.pvdify.win {
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please follow these steps:
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run tests (`go test ./...`)
+5. Commit (`git commit -m 'Add amazing feature'`)
+6. Push (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
 ---
 
@@ -500,6 +671,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## Links
 
-- **Dashboard:** [admin.pvdify.win](https://admin.pvdify.win)
-- **Status:** [admin.pvdify.win/status](https://admin.pvdify.win/status)
 - **GitHub:** [github.com/Philoveracity/pvdify.win](https://github.com/Philoveracity/pvdify.win)
+- **Issues:** [github.com/Philoveracity/pvdify.win/issues](https://github.com/Philoveracity/pvdify.win/issues)
