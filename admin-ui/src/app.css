@@ -1,0 +1,733 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PVDIFY ADMIN UI - Stripe-Inspired Design System
+   World-class UI/UX with mobile-first responsive design
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  :root {
+    /* Brand colors */
+    --pvd-50: #f5f3ff;
+    --pvd-100: #ede9fe;
+    --pvd-200: #ddd6fe;
+    --pvd-300: #c4b5fd;
+    --pvd-400: #a78bfa;
+    --pvd-500: #8b5cf6;
+    --pvd-600: #7c3aed;
+    --pvd-700: #6d28d9;
+    --pvd-800: #5b21b6;
+    --pvd-900: #4c1d95;
+
+    /* Semantic colors */
+    --success: #10b981;
+    --warning: #f59e0b;
+    --error: #ef4444;
+    --info: #3b82f6;
+
+    /* Spacing scale */
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+    --space-2xl: 3rem;
+
+    /* Animation timing */
+    --transition-fast: 150ms;
+    --transition-base: 200ms;
+    --transition-slow: 300ms;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+    /* Touch targets */
+    --touch-target-min: 44px;
+    --touch-target-comfortable: 48px;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Focus styles for accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-pvd-500 ring-offset-2;
+  }
+
+  /* Selection color */
+  ::selection {
+    @apply bg-pvd-100 text-pvd-900;
+  }
+}
+
+@layer components {
+  /* ═══════════════════════════════════════════════════════════════════════
+     BUTTONS - Touch-friendly with micro-interactions
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .btn {
+    @apply inline-flex items-center justify-center font-medium transition-all duration-200 ease-out;
+    @apply rounded-lg select-none cursor-pointer;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none;
+    min-height: var(--touch-target-min);
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .btn-primary {
+    @apply bg-pvd-600 text-white shadow-sm;
+    @apply hover:bg-pvd-700 hover:shadow-md;
+    @apply active:bg-pvd-800;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-gray-700 border border-gray-300 shadow-sm;
+    @apply hover:bg-gray-50 hover:border-gray-400;
+    @apply active:bg-gray-100;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-gray-600;
+    @apply hover:bg-gray-100 hover:text-gray-900;
+    @apply active:bg-gray-200;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 text-white shadow-sm;
+    @apply hover:bg-red-700 hover:shadow-md;
+    @apply active:bg-red-800;
+  }
+
+  .btn-success {
+    @apply bg-emerald-600 text-white shadow-sm;
+    @apply hover:bg-emerald-700 hover:shadow-md;
+    @apply active:bg-emerald-800;
+  }
+
+  .btn-sm {
+    min-height: 36px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  .btn-lg {
+    min-height: 52px;
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+  }
+
+  .btn-icon {
+    @apply p-2.5;
+    min-width: var(--touch-target-min);
+    min-height: var(--touch-target-min);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     CARDS - Elevated containers with consistent styling
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-200/80;
+    @apply transition-shadow duration-200;
+  }
+
+  .card-hover:hover {
+    @apply shadow-md;
+  }
+
+  .card-interactive {
+    @apply cursor-pointer;
+  }
+
+  .card-interactive:hover {
+    @apply shadow-md border-gray-300;
+  }
+
+  .card-interactive:active {
+    @apply shadow-sm;
+  }
+
+  .card-header {
+    @apply px-4 py-4 sm:px-6 border-b border-gray-100;
+    @apply flex items-center justify-between gap-4;
+  }
+
+  .card-body {
+    @apply px-4 py-4 sm:px-6;
+  }
+
+  .card-footer {
+    @apply px-4 py-3 sm:px-6 border-t border-gray-100 bg-gray-50/50;
+  }
+
+  .card-stats {
+    @apply px-4 py-4 text-center;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     FORM INPUTS - Accessible and touch-friendly
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .input {
+    @apply block w-full rounded-lg border border-gray-300 bg-white;
+    @apply text-sm text-gray-900 placeholder-gray-400;
+    @apply transition-colors duration-200;
+    @apply focus:border-pvd-500 focus:outline-none focus:ring-2 focus:ring-pvd-500/20;
+    padding: 0.625rem 0.875rem;
+    min-height: var(--touch-target-min);
+  }
+
+  .input:hover:not(:focus):not(:disabled) {
+    @apply border-gray-400;
+  }
+
+  .input:disabled {
+    @apply bg-gray-50 text-gray-500 cursor-not-allowed;
+  }
+
+  .input-error {
+    @apply border-red-300 focus:border-red-500 focus:ring-red-500/20;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-gray-700 mb-1.5;
+  }
+
+  .helper-text {
+    @apply text-xs text-gray-500 mt-1.5;
+  }
+
+  .error-text {
+    @apply text-xs text-red-600 mt-1.5;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     STATUS INDICATORS - Clear visual feedback
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .status-dot {
+    @apply relative inline-flex;
+  }
+
+  .status-dot::before {
+    content: '';
+    @apply absolute inset-0 rounded-full animate-ping;
+    animation-duration: 2s;
+  }
+
+  .status-dot-inner {
+    @apply relative rounded-full w-3 h-3;
+  }
+
+  .status-running .status-dot-inner {
+    @apply bg-emerald-500;
+  }
+
+  .status-running::before {
+    @apply bg-emerald-400 opacity-75;
+  }
+
+  .status-stopped .status-dot-inner {
+    @apply bg-gray-400;
+  }
+
+  .status-stopped::before {
+    display: none;
+  }
+
+  .status-deploying .status-dot-inner {
+    @apply bg-amber-500;
+  }
+
+  .status-deploying::before {
+    @apply bg-amber-400 opacity-75;
+  }
+
+  .status-failed .status-dot-inner {
+    @apply bg-red-500;
+  }
+
+  .status-failed::before {
+    display: none;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     BADGES & PILLS - Compact status indicators
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-gray {
+    @apply bg-gray-100 text-gray-700;
+  }
+
+  .badge-green {
+    @apply bg-emerald-100 text-emerald-700;
+  }
+
+  .badge-yellow {
+    @apply bg-amber-100 text-amber-700;
+  }
+
+  .badge-red {
+    @apply bg-red-100 text-red-700;
+  }
+
+  .badge-blue {
+    @apply bg-blue-100 text-blue-700;
+  }
+
+  .badge-purple {
+    @apply bg-pvd-100 text-pvd-700;
+  }
+
+  .badge-success {
+    @apply bg-emerald-100 text-emerald-700;
+  }
+
+  /* Simple status colors (no animation wrapper) */
+  .status-success {
+    @apply bg-emerald-500;
+  }
+
+  .status-warning {
+    @apply bg-amber-500;
+  }
+
+  .status-error {
+    @apply bg-red-500;
+  }
+
+  .status-neutral {
+    @apply bg-gray-400;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     ALERTS - Notification banners
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .alert {
+    @apply flex items-start gap-3 p-4 rounded-lg;
+  }
+
+  .alert-error {
+    @apply bg-red-50 border border-red-200 text-red-800;
+  }
+
+  .alert-warning {
+    @apply bg-amber-50 border border-amber-200 text-amber-800;
+  }
+
+  .alert-success {
+    @apply bg-emerald-50 border border-emerald-200 text-emerald-800;
+  }
+
+  .alert-info {
+    @apply bg-blue-50 border border-blue-200 text-blue-800;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     FORM UTILITIES
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .form-group {
+    @apply space-y-1;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-gray-700;
+  }
+
+  /* Touch-friendly interactive area */
+  .touch-target {
+    min-height: var(--touch-target-min);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     TABS - Mobile-friendly tab navigation
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .tabs {
+    @apply flex gap-1 overflow-x-auto scrollbar-hide;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scroll-padding: 0 1rem;
+  }
+
+  .tab {
+    @apply flex items-center gap-2 px-3 sm:px-4 py-3 text-sm font-medium text-gray-500 whitespace-nowrap;
+    @apply border-b-2 border-transparent transition-colors duration-200;
+    @apply hover:text-gray-700 hover:border-gray-300;
+    @apply flex-shrink-0;
+    scroll-snap-align: start;
+    min-height: var(--touch-target-min);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+  }
+
+  .tab-active {
+    @apply text-pvd-600 border-pvd-600;
+  }
+
+  .tab-active:hover {
+    @apply text-pvd-600 border-pvd-600;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     SKELETON LOADERS - Smooth loading states
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .skeleton {
+    @apply bg-gray-200 rounded animate-pulse;
+  }
+
+  .skeleton-text {
+    @apply h-4 rounded;
+  }
+
+  .skeleton-title {
+    @apply h-6 rounded w-3/4;
+  }
+
+  .skeleton-avatar {
+    @apply w-10 h-10 rounded-full;
+  }
+
+  .skeleton-button {
+    @apply h-10 w-24 rounded-lg;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     EMPTY STATES - Helpful guidance when content is missing
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .empty-state {
+    @apply flex flex-col items-center justify-center text-center py-12 px-4;
+  }
+
+  .empty-state-icon {
+    @apply w-16 h-16 text-gray-300 mb-4;
+  }
+
+  .empty-state-title {
+    @apply text-lg font-semibold text-gray-900 mb-2;
+  }
+
+  .empty-state-description {
+    @apply text-sm text-gray-500 max-w-sm mb-6;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     TOOLTIPS - Contextual help
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .tooltip-trigger {
+    @apply relative inline-flex;
+  }
+
+  .tooltip {
+    @apply absolute z-50 px-2 py-1 text-xs font-medium text-white bg-gray-900 rounded;
+    @apply opacity-0 pointer-events-none transition-opacity duration-200;
+    @apply whitespace-nowrap;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+  }
+
+  .tooltip::after {
+    content: '';
+    @apply absolute w-2 h-2 bg-gray-900;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    margin-top: -4px;
+  }
+
+  .tooltip-trigger:hover .tooltip,
+  .tooltip-trigger:focus .tooltip {
+    @apply opacity-100;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     MOBILE OPTIMIZATIONS
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Safe area insets for notched devices */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Mobile sticky footer */
+  .mobile-footer {
+    @apply fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200;
+    @apply px-4 py-3 safe-bottom;
+    @apply sm:relative sm:border-t-0 sm:p-0;
+  }
+
+  /* Bottom sheet (mobile modal alternative) */
+  .bottom-sheet {
+    @apply fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl shadow-xl;
+    @apply transform transition-transform duration-300 ease-out;
+    max-height: 90vh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .bottom-sheet-handle {
+    @apply w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-4;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     ANIMATIONS - Subtle and purposeful
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-down {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in var(--transition-base) ease-out;
+  }
+
+  .animate-slide-up {
+    animation: slide-up var(--transition-base) ease-out;
+  }
+
+  .animate-slide-down {
+    animation: slide-down var(--transition-base) ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scale-in var(--transition-base) ease-out;
+  }
+
+  /* Staggered animations for lists */
+  .stagger-item {
+    animation: slide-up var(--transition-base) ease-out both;
+  }
+
+  .stagger-item:nth-child(1) { animation-delay: 0ms; }
+  .stagger-item:nth-child(2) { animation-delay: 50ms; }
+  .stagger-item:nth-child(3) { animation-delay: 100ms; }
+  .stagger-item:nth-child(4) { animation-delay: 150ms; }
+  .stagger-item:nth-child(5) { animation-delay: 200ms; }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     RESPONSIVE TABLE ALTERNATIVE - Card list on mobile
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .data-list {
+    @apply divide-y divide-gray-100;
+  }
+
+  .data-list-item {
+    @apply py-4 px-4 sm:px-6;
+    @apply hover:bg-gray-50 transition-colors duration-150;
+  }
+
+  .data-list-item-interactive {
+    @apply cursor-pointer;
+    @apply active:bg-gray-100;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     TYPOGRAPHY UTILITIES
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .text-display {
+    @apply text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight;
+  }
+
+  .text-heading {
+    @apply text-lg sm:text-xl font-semibold text-gray-900;
+  }
+
+  .text-subheading {
+    @apply text-sm font-medium text-gray-700;
+  }
+
+  .text-body {
+    @apply text-sm text-gray-600;
+  }
+
+  .text-caption {
+    @apply text-xs text-gray-500;
+  }
+
+  .text-mono {
+    @apply font-mono text-sm bg-gray-100 px-1.5 py-0.5 rounded;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     LAYOUT UTILITIES
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  .page-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .page-header {
+    @apply py-6 sm:py-8;
+  }
+
+  .page-content {
+    @apply pb-24 sm:pb-8;
+  }
+
+  .section {
+    @apply py-6 first:pt-0;
+  }
+
+  /* Grid layouts */
+  .grid-dashboard {
+    @apply grid gap-4 sm:gap-6;
+    @apply grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .grid-stats {
+    @apply grid gap-4;
+    @apply grid-cols-2 sm:grid-cols-4;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     INTERACTIVE STATES
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* Pressable feedback */
+  .pressable {
+    @apply transition-transform duration-150 active:scale-[0.98];
+  }
+
+  /* Focus ring for keyboard navigation */
+  .focus-ring {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-pvd-500 focus-visible:ring-offset-2;
+  }
+
+  /* Disabled state */
+  .disabled {
+    @apply opacity-50 pointer-events-none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE BREAKPOINT OVERRIDES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 639px) {
+  /* Mobile-specific adjustments */
+  .card-header,
+  .card-body,
+  .card-footer {
+    @apply px-4;
+  }
+
+  /* Larger touch targets on mobile */
+  .btn {
+    min-height: var(--touch-target-comfortable);
+  }
+
+  /* Full-width buttons on mobile */
+  .btn-mobile-full {
+    @apply w-full;
+  }
+}
+
+@media (min-width: 640px) {
+  /* Desktop hover states */
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRINT STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    @apply bg-white text-black;
+  }
+
+  .card {
+    @apply shadow-none border;
+  }
+}

@@ -1,0 +1,44 @@
+# Binaries
+pvdifyd/pvdifyd
+cli/pvdify
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build artifacts
+admin-ui/node_modules/
+admin-ui/dist/
+admin-ui/.svelte-kit/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment files
+.env
+.env.*
+*.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test coverage
+coverage/
+
+# Secrets (never commit)
+*secret*
+*credential*
+*.pem
+*.key
