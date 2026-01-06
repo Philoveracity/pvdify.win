@@ -55,6 +55,13 @@ func (s *Server) setupRoutes() {
 	r.Route("/api/v1", func(r chi.Router) {
 		// CORS for Admin UI
 		r.Use(corsMiddleware)
+
+		// Cloudflare integration
+		r.Route("/cloudflare", func(r chi.Router) {
+			r.Get("/zones", s.handleListCloudflareZones)
+			r.Get("/dns", s.handleListCloudflareDNS)
+		})
+
 		// Apps
 		r.Route("/apps", func(r chi.Router) {
 			r.Get("/", s.handleListApps)
@@ -84,6 +91,8 @@ func (s *Server) setupRoutes() {
 					r.Get("/", s.handleListDomains)
 					r.Post("/", s.handleAddDomain)
 					r.Delete("/{domain}", s.handleRemoveDomain)
+					// Cloudflare DNS integration
+					r.Post("/{domain}/cloudflare", s.handleCreateCloudflareDNS)
 				})
 
 				// Processes

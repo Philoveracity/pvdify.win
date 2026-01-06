@@ -27,6 +27,13 @@
     command?: string;
   }
 
+  interface CloudflareZone {
+    id: string;
+    name: string;
+    plan: string;
+    status: string;
+  }
+
   let app: App | null = null;
   let releases: Release[] = [];
   let processes: Process[] = [];
@@ -35,6 +42,17 @@
   let activeTab = 'overview';
   let showConfigValues = false;
   let mobileActionsOpen = false;
+
+  // Cloudflare integration state
+  let showCloudflareModal = false;
+  let cloudflareZones: CloudflareZone[] = [];
+  let loadingZones = false;
+  let selectedZone = '';
+  let newDomainName = '';
+  let cfProxied = true;
+  let cfCreating = false;
+  let cfError = '';
+  let cfSuccess = '';
 
   const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -115,6 +133,101 @@
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
     return formatDate(date);
+  }
+
+  // Cloudflare functions
+  async function openCloudflareModal() {
+    showCloudflareModal = true;
+    cfError = '';
+    cfSuccess = '';
+    newDomainName = '';
+    selectedZone = '';
+
+    if (cloudflareZones.length === 0) {
+      await loadCloudflareZones();
+    }
+  }
+
+  async function loadCloudflareZones() {
+    loadingZones = true;
+    try {
+      const res = await fetch(`${API_URL}/api/v1/cloudflare/zones`);
+      const data = await res.json();
+      cloudflareZones = data.zones || [];
+    } catch (e) {
+      console.error('Failed to load Cloudflare zones:', e);
+      cfError = 'Failed to load Cloudflare zones';
+    } finally {
+      loadingZones = false;
+    }
+  }
+
+  async function createCloudflareDNS() {
+    if (!selectedZone || !newDomainName || !app) return;
+
+    cfCreating = true;
+    cfError = '';
+    cfSuccess = '';
+
+    try {
+      // First add domain to the app
+      const addDomainRes = await fetch(`${API_URL}/api/v1/apps/${app.name}/domains`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: newDomainName })
+      });
+
+      if (!addDomainRes.ok) {
+        const errData = await addDomainRes.json().catch(() => ({}));
+        if (addDomainRes.status !== 409) { // 409 = domain already exists, which is fine
+          throw new Error(errData.error || 'Failed to add domain');
+        }
+      }
+
+      // Then create DNS record in Cloudflare
+      const cfRes = await fetch(`${API_URL}/api/v1/apps/${app.name}/domains/${encodeURIComponent(newDomainName)}/cloudflare`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          zone_name: selectedZone,
+          proxied: cfProxied
+        })
+      });
+
+      if (!cfRes.ok) {
+        const errData = await cfRes.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to create DNS record');
+      }
+
+      cfSuccess = `Successfully connected ${newDomainName} to Cloudflare!`;
+
+      // Reload app to show new domain
+      await loadApp(app.name);
+
+      // Reset form
+      setTimeout(() => {
+        showCloudflareModal = false;
+        cfSuccess = '';
+        newDomainName = '';
+        selectedZone = '';
+      }, 2000);
+
+    } catch (e: any) {
+      cfError = e.message || 'An error occurred';
+    } finally {
+      cfCreating = false;
+    }
+  }
+
+  function closeCloudflareModal() {
+    showCloudflareModal = false;
+    cfError = '';
+    cfSuccess = '';
+  }
+
+  // Auto-generate domain name based on zone selection
+  $: if (selectedZone && app && !newDomainName) {
+    newDomainName = `${app.name}.${selectedZone}`;
   }
 
   const tabs = [
@@ -505,6 +618,16 @@
         <div class="card">
           <div class="card-header">
             <h2 class="font-medium text-gray-900">Domains</h2>
+            <button
+              type="button"
+              on:click={openCloudflareModal}
+              class="btn btn-primary btn-sm gap-1.5"
+            >
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M16.5088 16.8447C16.5088 16.8447 16.9178 15.6414 16.6585 15.0218C16.3992 14.4023 15.8808 14.0931 15.3624 14.0931H8.35117C7.73153 14.0931 7.31249 13.6741 7.31249 13.0546C7.31249 12.8553 7.41303 12.656 7.51356 12.4567L12.4935 6.36059C12.6944 6.16129 12.6944 5.86199 12.4935 5.66269C12.2926 5.46339 11.9917 5.46339 11.7908 5.66269L6.81088 11.7588C6.40958 12.2577 6.20893 12.8553 6.20893 13.5552C6.20893 14.9549 7.31249 16.1547 8.65159 16.1547H14.5371C14.9382 16.1547 15.2391 16.4541 15.2391 16.8537C15.2391 17.2533 14.9382 17.5526 14.5371 17.5526H4.21655C3.61618 17.5526 3.1153 17.2533 2.81442 16.7544C2.51355 16.2555 2.51355 15.5568 2.81442 15.0579L9.75455 3.27258C10.0554 2.77367 10.5563 2.47437 11.1567 2.47437C11.757 2.47437 12.2579 2.77367 12.5588 3.27258L15.5674 8.36177C15.7683 8.66107 15.668 9.06027 15.3671 9.25957C15.0662 9.45887 14.6651 9.35917 14.4642 9.05987L11.4556 3.97069C11.3551 3.77139 11.1542 3.67169 10.9533 3.67169C10.7524 3.67169 10.5515 3.77139 10.4509 3.97069L3.51076 15.756C3.41023 15.9553 3.41023 16.0546 3.51076 16.2539C3.61129 16.4532 3.81195 16.5529 4.01261 16.5529H14.5371C15.5376 16.5529 16.3386 17.3523 16.3386 18.3514C16.3386 19.3505 15.5376 20.15 14.5371 20.15H5.52075C5.11944 20.15 4.81856 20.4493 4.81856 20.8489C4.81856 21.2485 5.11944 21.5478 5.52075 21.5478H14.5371C16.2764 21.5478 17.7352 20.0902 17.7352 18.3514C17.7352 17.8524 17.634 17.3535 17.3331 16.9543C17.6341 16.9543 17.8348 16.8546 18.0355 16.6553C18.2361 16.456 18.3367 16.2568 18.4372 15.9575L18.8383 14.6541C18.9388 14.4548 19.0393 14.3548 19.2399 14.2552C19.4406 14.1555 19.6413 14.0552 19.9421 14.0555L21.0781 14.2558C21.479 14.3555 21.7803 14.1555 21.8808 13.7562C21.9813 13.357 21.7799 13.0577 21.3795 12.9574L19.9421 12.657C19.3417 12.5574 18.8408 12.657 18.4397 12.9564C18.0386 13.2557 17.7377 13.755 17.5368 14.3545L17.2359 15.2539C16.3355 13.2561 15.4346 12.5574 14.1339 12.4571L14.0338 12.3574C13.8329 12.2578 13.7324 12.0578 13.8329 11.8585L14.0338 11.2589C14.0338 11.0596 14.0338 10.9596 14.0338 10.7603C14.0338 10.0604 13.5329 9.46077 12.8317 9.36117L11.495 9.16147C10.9941 9.06177 10.5932 9.46077 10.6937 9.95967L11.0949 12.1571C11.1954 12.556 11.5965 12.8553 11.9977 12.8553H12.0982C12.4993 12.8553 12.8005 12.556 12.9006 12.1564L12.7001 11.4577C12.7001 11.2584 12.7001 11.0591 12.9006 10.9594L13.0011 10.6601C13.0011 10.7598 13.1016 10.9594 13.2021 11.0591C13.6032 11.3584 14.5039 11.758 15.0045 12.9574C15.4056 13.8568 16.0062 14.8558 16.5088 16.8447Z"/>
+              </svg>
+              Connect via Cloudflare
+            </button>
           </div>
           <div class="divide-y divide-gray-100">
             <!-- Default Domain -->
@@ -581,4 +704,152 @@
       </div>
     {/if}
   </div>
+
+  <!-- Cloudflare Modal -->
+  {#if showCloudflareModal}
+    <div class="fixed inset-0 z-50 overflow-y-auto">
+      <!-- Backdrop -->
+      <div
+        class="fixed inset-0 bg-black/50 transition-opacity"
+        on:click={closeCloudflareModal}
+        on:keydown={(e) => e.key === 'Escape' && closeCloudflareModal()}
+        role="button"
+        tabindex="-1"
+      ></div>
+
+      <!-- Modal -->
+      <div class="flex min-h-full items-center justify-center p-4">
+        <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full">
+          <!-- Header -->
+          <div class="px-6 py-4 border-b border-gray-100">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <svg class="w-5 h-5 text-orange-600" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16.5088 16.8447C16.5088 16.8447 16.9178 15.6414 16.6585 15.0218C16.3992 14.4023 15.8808 14.0931 15.3624 14.0931H8.35117C7.73153 14.0931 7.31249 13.6741 7.31249 13.0546C7.31249 12.8553 7.41303 12.656 7.51356 12.4567L12.4935 6.36059C12.6944 6.16129 12.6944 5.86199 12.4935 5.66269C12.2926 5.46339 11.9917 5.46339 11.7908 5.66269L6.81088 11.7588C6.40958 12.2577 6.20893 12.8553 6.20893 13.5552C6.20893 14.9549 7.31249 16.1547 8.65159 16.1547H14.5371C14.9382 16.1547 15.2391 16.4541 15.2391 16.8537C15.2391 17.2533 14.9382 17.5526 14.5371 17.5526H4.21655C3.61618 17.5526 3.1153 17.2533 2.81442 16.7544C2.51355 16.2555 2.51355 15.5568 2.81442 15.0579L9.75455 3.27258C10.0554 2.77367 10.5563 2.47437 11.1567 2.47437C11.757 2.47437 12.2579 2.77367 12.5588 3.27258L15.5674 8.36177C15.7683 8.66107 15.668 9.06027 15.3671 9.25957C15.0662 9.45887 14.6651 9.35917 14.4642 9.05987L11.4556 3.97069C11.3551 3.77139 11.1542 3.67169 10.9533 3.67169C10.7524 3.67169 10.5515 3.77139 10.4509 3.97069L3.51076 15.756C3.41023 15.9553 3.41023 16.0546 3.51076 16.2539C3.61129 16.4532 3.81195 16.5529 4.01261 16.5529H14.5371C15.5376 16.5529 16.3386 17.3523 16.3386 18.3514C16.3386 19.3505 15.5376 20.15 14.5371 20.15H5.52075C5.11944 20.15 4.81856 20.4493 4.81856 20.8489C4.81856 21.2485 5.11944 21.5478 5.52075 21.5478H14.5371C16.2764 21.5478 17.7352 20.0902 17.7352 18.3514C17.7352 17.8524 17.634 17.3535 17.3331 16.9543C17.6341 16.9543 17.8348 16.8546 18.0355 16.6553C18.2361 16.456 18.3367 16.2568 18.4372 15.9575L18.8383 14.6541C18.9388 14.4548 19.0393 14.3548 19.2399 14.2552C19.4406 14.1555 19.6413 14.0552 19.9421 14.0555L21.0781 14.2558C21.479 14.3555 21.7803 14.1555 21.8808 13.7562C21.9813 13.357 21.7799 13.0577 21.3795 12.9574L19.9421 12.657C19.3417 12.5574 18.8408 12.657 18.4397 12.9564C18.0386 13.2557 17.7377 13.755 17.5368 14.3545L17.2359 15.2539C16.3355 13.2561 15.4346 12.5574 14.1339 12.4571L14.0338 12.3574C13.8329 12.2578 13.7324 12.0578 13.8329 11.8585L14.0338 11.2589C14.0338 11.0596 14.0338 10.9596 14.0338 10.7603C14.0338 10.0604 13.5329 9.46077 12.8317 9.36117L11.495 9.16147C10.9941 9.06177 10.5932 9.46077 10.6937 9.95967L11.0949 12.1571C11.1954 12.556 11.5965 12.8553 11.9977 12.8553H12.0982C12.4993 12.8553 12.8005 12.556 12.9006 12.1564L12.7001 11.4577C12.7001 11.2584 12.7001 11.0591 12.9006 10.9594L13.0011 10.6601C13.0011 10.7598 13.1016 10.9594 13.2021 11.0591C13.6032 11.3584 14.5039 11.758 15.0045 12.9574C15.4056 13.8568 16.0062 14.8558 16.5088 16.8447Z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 class="font-medium text-gray-900">Connect to Cloudflare</h3>
+                  <p class="text-sm text-gray-500">Add a domain and configure DNS</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                on:click={closeCloudflareModal}
+                class="p-2 -mr-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Body -->
+          <div class="px-6 py-4">
+            {#if loadingZones}
+              <div class="flex items-center justify-center py-8">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-pvd-600"></div>
+              </div>
+            {:else}
+              <!-- Error Message -->
+              {#if cfError}
+                <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p class="text-sm text-red-700">{cfError}</p>
+                </div>
+              {/if}
+
+              <!-- Success Message -->
+              {#if cfSuccess}
+                <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    <p class="text-sm text-green-700">{cfSuccess}</p>
+                  </div>
+                </div>
+              {/if}
+
+              <form on:submit|preventDefault={createCloudflareDNS} class="space-y-4">
+                <!-- Zone Selection -->
+                <div>
+                  <label for="cf-zone" class="block text-sm font-medium text-gray-700 mb-1">
+                    Cloudflare Zone
+                  </label>
+                  <select
+                    id="cf-zone"
+                    bind:value={selectedZone}
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pvd-500 focus:border-pvd-500"
+                    required
+                  >
+                    <option value="">Select a zone...</option>
+                    {#each cloudflareZones as zone}
+                      <option value={zone.name}>{zone.name}</option>
+                    {/each}
+                  </select>
+                  <p class="mt-1 text-xs text-gray-500">{cloudflareZones.length} zones available</p>
+                </div>
+
+                <!-- Domain Name -->
+                <div>
+                  <label for="cf-domain" class="block text-sm font-medium text-gray-700 mb-1">
+                    Domain Name
+                  </label>
+                  <input
+                    type="text"
+                    id="cf-domain"
+                    bind:value={newDomainName}
+                    placeholder="app.example.com"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pvd-500 focus:border-pvd-500"
+                    required
+                  />
+                  <p class="mt-1 text-xs text-gray-500">
+                    A CNAME record will point to <code class="bg-gray-100 px-1 rounded">{app?.name}.pvdify.win</code>
+                  </p>
+                </div>
+
+                <!-- Proxied Toggle -->
+                <div class="flex items-center justify-between py-2">
+                  <div>
+                    <label for="cf-proxied" class="text-sm font-medium text-gray-700">
+                      Cloudflare Proxy
+                    </label>
+                    <p class="text-xs text-gray-500">Enable Cloudflare CDN and protection</p>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id="cf-proxied"
+                      bind:checked={cfProxied}
+                      class="sr-only peer"
+                    />
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-pvd-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pvd-600"></div>
+                  </label>
+                </div>
+
+                <!-- Submit Button -->
+                <button
+                  type="submit"
+                  disabled={cfCreating || !selectedZone || !newDomainName}
+                  class="w-full btn btn-primary justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {#if cfCreating}
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Creating DNS Record...
+                  {:else}
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Connect Domain
+                  {/if}
+                </button>
+              </form>
+            {/if}
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
 {/if}
